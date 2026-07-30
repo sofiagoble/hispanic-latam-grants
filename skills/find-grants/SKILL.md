@@ -1,22 +1,17 @@
 ---
 name: find-grants
 description: >
-  This skill should be used when the user asks to "find grants for my nonprofit",
-  "search for funding opportunities", "match grants to our mission", "who funds
-  Hispanic-serving organizations", "grants for Latin American nonprofits", or
-  provides a nonprofit's mission, location, sector, budget, and size and wants
-  ranked grant matches. Covers both private foundations (prioritizing funders
-  with a track record of supporting Hispanic-serving organizations and Latin
-  American nonprofits, via IRS Form 990 data) and open federal grant
-  opportunities (via grants.gov), with live web search as a fallback for
-  current deadlines and newly announced grant cycles. Serves both
-  US-based Hispanic/Latino-serving nonprofits and organizations based in
-  Latin America — for the latter, it surfaces US federal (Inter-American
-  Foundation, State Dept/USAID) and private-foundation sources that fund
-  work in Latin America, since it has no access to in-country/local
-  funding sources. Can also append real Census Bureau demographic data
-  (Hispanic/Latino population share, poverty rate) for a US org's city
-  or county, to support a grant narrative's statement of need.
+  Use when the user asks to "find grants for my nonprofit", "search for funding
+  opportunities", "match grants to our mission", "who funds Hispanic-serving
+  organizations", or "grants for Latin American nonprofits" — or provides a
+  nonprofit's mission, location, sector, budget, and size and wants ranked
+  matches. Searches private foundations (IRS Form 990 data), open federal grants
+  (grants.gov), and the live web, prioritizing funders with a track record of
+  supporting Hispanic-serving and Latin American nonprofits. Serves both US-based
+  organizations and those based in Latin America — for the latter, surfacing
+  US-origin funding (Inter-American Foundation, embassy programs, US foundations)
+  that reaches the region. Optionally adds US Census demographic data to support
+  a grant narrative.
 metadata:
   version: "0.7.0"
 ---
