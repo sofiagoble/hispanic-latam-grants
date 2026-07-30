@@ -1,0 +1,9 @@
+{
+  "name": "hispanic-latam-grants",
+  "version": "0.7.0",
+  "description": "Find and rank grant opportunities for Hispanic-serving nonprofits (US-based or Latin America-based), combining IRS Form 990 filings, a hosted grants.gov MCP connector (including Inter-American Foundation and embassy programs for LatAm-based orgs), Census ACS demographic data for US grant narratives, and live web search as fallback.",
+  "author": {
+    "name": "Sofia Goble"
+  },
+  "keywords": ["grants", "nonprofit", "fundraising", "hispanic", "latino", "latin-america", "irs-990", "grants-gov", "federal-grants", "census-acs"]
+}

@@ -1,0 +1,47 @@
+{
+  "name": "census-acs",
+  "description": "U.S. Census Bureau American Community Survey (ACS) data, used to back a grant narrative's community-need statement with real Hispanic/Latino population, poverty, and demographic figures for the org's service area. Read-only, no relationship to funder matching.",
+  "auth": {
+    "type": "API key as a URL query parameter (key=...)",
+    "note": "This plugin ships with a placeholder, not a real key — each installer must get their own free key (instant, no OAuth) at https://api.census.gov/data/key_signup.html and paste it in here. Do not use a shared/personal key here if this plugin is ever distributed to others.",
+    "placeholder": "REPLACE-WITH-YOUR-CENSUS-API-KEY"
+  },
+  "critical_bug": {
+    "summary": "WebFetch reliably returns EMPTY for any Census API URL combining a SPECIFIC for= value (e.g. for=county:201) with an in= clause (e.g. in=state:39) — confirmed via repeated testing, even though the identical URL returns correct data in a browser or via curl with a normal User-Agent. A wildcard for= value combined with in= (e.g. for=place:*&in=state:48) works fine; it's specifically the for=<type>:<specific-code>&in=state:<code> combination that fails.",
+    "rule": "NEVER construct a query of the form for=<type>:<specific-code>&in=state:<code> for the actual data fetch. Always use the ucgid= parameter instead (see workflow below) to target one specific geography — this has been tested and works reliably. Wildcard for= queries (no in=, or wildcard for= with in=) are fine for the geography-lookup step."
+  },
+  "workflow": {
+    "step_1_resolve_geography": {
+      "description": "Find the FIPS code(s) for the org's city or county by name. Do this once per org location, not per query.",
+      "county_lookup": {
+        "url_pattern": "https://api.census.gov/data/{year}/acs/acs5?get=NAME&for=county:*&key={key}",
+        "notes": "Fetches all ~3,143 US counties in one call (large response, but confirmed working via WebFetch). Search the returned rows for a name match like 'Harris County, Texas'; the row includes the state and county FIPS codes."
+      },
+      "place_lookup": {
+        "url_pattern": "https://api.census.gov/data/{year}/acs/acs5?get=NAME&for=place:*&in=state:{state_fips}&key={key}",
+        "notes": "Fetches all incorporated places within one state — needs the state FIPS code first (a stable, small lookup you can reason about directly, e.g. Texas=48, Ohio=39, California=06). This is a wildcard for= with in=, which works fine — only a SPECIFIC for= value with in= is broken (see critical_bug)."
+      }
+    },
+    "step_2_construct_ucgid": {
+      "description": "Build a single ucgid string from the FIPS code(s) found in step 1 — this is what step 3 actually queries with.",
+      "state_format": "0400000US{state_fips}",
+      "county_format": "0500000US{state_fips}{county_fips}",
+      "place_format": "1600000US{state_fips}{place_fips}"
+    },
+    "step_3_fetch_data": {
+      "url_pattern": "https://api.census.gov/data/{year}/acs/acs5?get=NAME,{comma_separated_variables}&ucgid={ucgid}&key={key}",
+      "notes": "Use the most recent year with data available (ACS 5-year estimates lag ~1-2 years behind the current date). Always use ucgid here, never for=<specific>&in=."
+    }
+  },
+  "key_variables": {
+    "B03001_001E": "Total population (universe for Hispanic/Latino origin)",
+    "B03001_003E": "Hispanic or Latino population (aggregate, all origins)",
+    "B17001_001E": "Total population for whom poverty status is determined",
+    "B17001_002E": "Population with income below the poverty level in the past 12 months"
+  },
+  "usage_notes": [
+    "ACS 5-year estimates are the most reliable for small geographies (city/county level) — 1-year estimates only exist for large areas (~65k+ population) and can be noisier.",
+    "Compute percentages yourself from the raw counts (e.g. Hispanic/Latino share = B03001_003E / B03001_001E) — the API returns raw totals, not percentages.",
+    "This connector is for community-need context in a grant narrative, not for funder matching — keep it a separate, clearly-labeled section in the skill's output, not mixed into the ranked funder table."
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "name": "irs-990",
+  "description": "Data source configuration for querying IRS Form 990 filings via ProPublica's free Nonprofit Explorer API. Used to identify grant-making foundations, their EIN, revenue, assets, and total grants disbursed.",
+  "auth": "none — public API, no key required",
+  "endpoints": {
+    "search": {
+      "url": "https://projects.propublica.org/nonprofits/api/v2/search.json",
+      "method": "GET",
+      "params": {
+        "q": "search term — funder name, focus-area keyword (e.g. 'Latino', 'Hispanic', 'Latin America')",
+        "state[id]": "optional two-letter US state code to filter by location",
+        "ntee[id]": "BROKEN as of this writing — returns HTTP 500 in every combination tested (alone, with state[id], even with a valid q term present). Do not use. The NTEE code is still returned on each result row (see ntee_code below), so check it manually instead of filtering by it."
+      }
+    },
+    "organization": {
+      "url": "https://projects.propublica.org/nonprofits/api/v2/organizations/{ein}.json",
+      "method": "GET",
+      "params": {
+        "ein": "the organization's EIN with no dashes"
+      }
+    }
+  },
+  "fields_of_interest": [
+    "organization.name",
+    "organization.ntee_code",
+    "organization.state",
+    "organization.subseccode",
+    "filings_with_data[].tax_prd_yr",
+    "filings_with_data[].totrevenue",
+    "filings_with_data[].totassetsend",
+    "filings_with_data[].grantsandsimilaramountspaid"
+  ],
+  "usage_notes": [
+    "The search endpoint returns HTTP 404, not an empty array, when a query matches zero organizations — treat 404 as a signal to broaden or simplify the query (fewer/broader terms), not as an API failure. Combining 3+ specific terms (e.g. 'hispanic workforce development') commonly 404s even though each term alone returns results.",
+    "The `ntee[id]` filter currently returns HTTP 500 in every combination tested, including with a valid `q` term present — treat any use of it as broken, not as a signal about your query. Use `q=<sector keyword>&state[id]=<state>` instead, and check the NTEE code shown on each result row manually.",
+    "990 data reflects prior fiscal years (typically a 12-24 month lag) — use it to confirm a funder's size, grant-making capacity, and historical focus, not current open RFPs or deadlines.",
+    "990-PF filings (private foundations) list grants actually paid (`grantsandsimilaramountspaid`), including recipient names — useful for finding funders with a track record of giving to Hispanic-serving or Latin American-focused organizations. Public-charity 990 filers (including many large umbrella/community funders) leave this field empty — use `totrevenue`/`totassetsend` as the capacity signal for those instead.",
+    "`state[id]` filters to organizations registered/headquartered in that state, not funders who give there. Most relevant regional/national funders are based elsewhere but fund into the org's area — don't use this filter to search directly for funders; use it (with a sector keyword in `q`) to find peer organizations instead (see the skill's Step 2.5), then find those peers' funders via web search.",
+    "In practice this API is stronger at validating and sizing a funder you already have a name for than at discovering funders from a blank cause+geography query — expect web search and peer-organization lookups to surface most new candidate names, with this API confirming them.",
+    "A funder with no filing in roughly the last 3 years may be defunct or inactive — don't assume grant-making capacity from an old filing alone; confirm current activity via web search.",
+    "Always cross-reference candidates found here against the web-search fallback to confirm current application status, deadlines, and amounts before presenting them as matches."
+  ],
+  "fallback": {
+    "name": "claude-web-search",
+    "role": "Use when 990 data doesn't surface enough candidates, or to verify a shortlisted funder's current deadline, RFP status, and typical grant size.",
+    "query_pattern": "\"<funder name>\" grant application deadline 2026 Hispanic OR Latino OR \"Latin America\""
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "plugin": "hispanic-latam-grants",
+  "displayName": "Hispanic & Latin American Nonprofit Grant Finder",
+  "summary": "Matches a nonprofit's mission, location, sector, budget, and size against grant-making foundations and open federal grant opportunities, prioritizing funders/programs with a track record supporting Hispanic-serving organizations. Serves both US-based orgs and orgs based in Latin America (surfacing US-origin funding that reaches the latter, since there's no in-country/local funding database wired up).",
+  "skills": [
+    {
+      "id": "find-grants",
+      "path": "skills/find-grants/SKILL.md",
+      "triggerPhrases": [
+        "find grants for my nonprofit",
+        "search for funding opportunities",
+        "match grants to our mission",
+        "who funds Hispanic-serving organizations",
+        "grants for Latin American nonprofits"
+      ],
+      "inputs": [
+        { "name": "org_mission", "type": "string", "required": true, "description": "Short description of the organization's mission and programs" },
+        { "name": "location", "type": "string", "required": true, "description": "City/state (US) or country/city (Latin America) the org operates in or serves — determines whether US-domestic or LatAm funding sources apply" },
+        { "name": "sector", "type": "string", "required": true, "description": "e.g. education, health, arts, workforce development, immigration services" },
+        { "name": "annual_budget", "type": "string", "required": true, "description": "Approximate annual operating budget, e.g. '$250,000'" },
+        { "name": "nonprofit_size", "type": "string", "required": true, "description": "e.g. grassroots/volunteer-run, small (1-10 staff), mid-size (10-50 staff), large (50+ staff)" }
+      ],
+      "output": "A ranked table of 5-10 grant matches (private foundation and/or federal): type, funder/agency name, description, eligibility, typical grant size, and application deadline. Optionally followed by a Census-backed community-need context section."
+    }
+  ],
+  "dataSources": [
+    { "name": "IRS Form 990 filings (via ProPublica Nonprofit Explorer API)", "role": "primary — private foundations, no API key required", "config": "connectors/irs-990.json" },
+    { "name": "grants-gov MCP server (wraps the real Simpler Grants API)", "role": "primary — open federal grant opportunities; requires a self-hosted server, see grant-finder-hispanic-server/README.md", "config": ".mcp.json" },
+    { "name": "Census Bureau American Community Survey (ACS)", "role": "optional — Hispanic/Latino population share and poverty rate for the org's city/county, to support the grant narrative; requires each installer's own free API key", "config": "connectors/census-acs.json" },
+    { "name": "Claude web search", "role": "fallback for current deadlines, newly announced grant cycles, and for federal opportunities if the grants-gov MCP server is unreachable" }
+  ]
+}

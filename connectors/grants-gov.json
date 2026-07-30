@@ -1,0 +1,70 @@
+{
+  "name": "grants-gov",
+  "description": "Finding open federal grant opportunities. Primary: the grants-gov MCP connector (hosted, wraps the real Simpler Grants API). Fallback: reading public grants.gov opportunity pages directly, used only if the MCP connector is unreachable.",
+  "primary_method": {
+    "type": "MCP tool",
+    "server": "grants-gov (see this plugin's .mcp.json for the hosted URL)",
+    "tools": {
+      "search_opportunities": "Filters: query, applicant_type, funding_category, opportunity_status, min_award_ceiling, order_by, limit. See the tool's own description (via introspection/its docstring) for exact parameter values and status codes.",
+      "get_opportunity": "Full detail for one opportunity by opportunity_id."
+    },
+    "auth": "None needed by the skill or the plugin installer — the server holds its own Simpler Grants API key. See the sibling grant-finder-hispanic-server project for the server implementation and deployment instructions.",
+    "on_failure": "If a tool call errors, times out, or the connector is otherwise unreachable, fall back to the discovery_method below and say so explicitly in the skill's output (see SKILL.md Step 3.6) — don't fail silently or fail the whole skill."
+  },
+  "fallback_method": "no key required — reads public opportunity pages directly. Only used when the MCP connector above is unreachable.",
+  "discovery_method": {
+    "description": "grants.gov/simpler.grants.gov's own search page is a client-rendered JavaScript app and returns no usable content to a direct page fetch. Use WebSearch to find individual opportunity pages, then fetch each one directly.",
+    "example_queries": [
+      "site:simpler.grants.gov \"<sector keyword>\" nonprofit",
+      "\"<sector keyword>\" grants.gov opportunity 501(c)(3)"
+    ]
+  },
+  "opportunity_page": {
+    "url_pattern": "https://simpler.grants.gov/opportunity/{opportunity_id}",
+    "method": "GET (fetch the page directly, no auth)",
+    "fields_of_interest": [
+      "title",
+      "issuing agency",
+      "current status (Posted / Forecasted / Closed / Archived)",
+      "award ceiling",
+      "award floor",
+      "post date",
+      "close date / deadline",
+      "eligible applicant types",
+      "application / more-info link",
+      "funding opportunity number"
+    ]
+  },
+  "status_values": {
+    "Posted": "Currently open and accepting applications — the only status to present as an actionable match without a caveat.",
+    "Forecasted": "Expected to open soon but not yet accepting applications — note as upcoming, not actionable now.",
+    "Closed": "Application window has ended — exclude unless nothing else qualifies, and label plainly as closed if included.",
+    "Archived": "No longer active — treat the same as Closed."
+  },
+  "usage_notes": [
+    "Eligible applicant types matter a lot: if a posting's eligible types are entirely government bodies (state/county/city/tribal agencies) with no nonprofit/501(c)(3) code, the money is a pass-through — it goes to a state or local agency first, which runs its own subgrant competition. A nonprofit can't apply to the grants.gov posting directly in that case.",
+    "Always check the current status field on the opportunity's own page before presenting a deadline — a page found via search may be well out of date by the time it's read.",
+    "IMPORTANT: legacy URLs of the form grants.gov/search-results-detail/<number> are ALSO a client-rendered JavaScript app, just like the search page — WebFetch on one returns only page chrome (nav/footer), no opportunity content. Only simpler.grants.gov/opportunity/<id> pages are server-rendered and readable. If WebSearch only turns up a search-results-detail link (or a third-party site summarizing an opportunity) and no simpler.grants.gov/opportunity link, try rephrasing the search to find one; if none exists, present the opportunity's name/agency from the search snippet only, mark every other field 'Not confirmed via direct fetch', and don't invent a status, deadline, or amount to fill the row."
+  ],
+  "pass_through_tracing": {
+    "description": "One-hop tracing of a pass-through-only posting down to the specific administering agency (see the skill's Step 3.7). Confirmed working in testing without needing the ALN/SAM.gov fallback below.",
+    "primary_method": "WebSearch \"<program name>\" \"<org's state>\" administering agency — or, if the eligible types name a specific local-level body (workforce development board, Continuum of Care lead agency, Area Agency on Aging, Community Action Agency), search for the specific one covering the org's city/county. This reliably surfaced the real agency by name in testing (e.g. Texas Department of Housing and Community Affairs for a CSBG posting; Workforce Solutions Gulf Coast / Houston-Galveston Area Council for a DOL dislocated-worker program).",
+    "realistic_outcomes": "Tracing does not always end in a confirmed deadline — in testing it produced either a live funding-opportunities page, a page with only stale/past-year postings, or a named contact for partnership inquiries with no formal open competition. All three are useful, legitimate results; report whichever was actually found rather than forcing a deadline.",
+    "fallback_method": "If a direct search doesn't name the agency, look up the program's Assistance Listing Number (ALN, format XX.XXX, found on the opportunity's own page or its additionalInfoUrl) and search sam.gov/assistance-listings or usaspending.gov for that ALN plus the org's state to identify the prime recipient agency. Not needed in either case tested — try the direct search first.",
+    "depth_cap": "Stop after one hop (the state/regional administering agency). If that agency further delegates locally (e.g. to a county-level subrecipient), name that in the output rather than chasing it further — a deeper chain is a possible future addition, not implemented here."
+  },
+  "latin_america_based_orgs": {
+    "description": "For applicant orgs based in a Latin American country (not the US), the same search_opportunities/get_opportunity tools apply, but target a different slice of federal funding — programs actually designed for foreign organizations, not the standard domestic 501(c)(3) posting.",
+    "key_sources": [
+      "Inter-American Foundation (IAF) — a small US federal agency solely dedicated to funding grassroots orgs in Latin America/Caribbean. Search for it by name via search_opportunities. iaf.gov's own country pages are NOT reachable via WebFetch (see known_bugs below) — get country-specific coverage from web-search summaries instead.",
+      "State Department public diplomacy small grants — run per-embassy, not as one nationwide posting. See the skill's references/latam-embassy-funding.md for verified embassy funding-page URLs."
+    ],
+    "eligibility_caveat": "The applicant_types code nonprofits_non_higher_education_with_501c3 requires actual IRS 501(c)(3) recognition, which a foreign organization won't have unless it has a US fiscal sponsor or an equivalency determination. Don't present a 501c3-only posting as directly appliable to a Latin-America-based org without flagging this. Embassy/IAF programs typically use an other or unrestricted applicant type instead, precisely because they're built for foreign applicants — those are the safer direct matches.",
+    "example_found_in_testing": "Search results for embassy-run small grants programs (Mexico, Jamaica, Lebanon, Oman, Djibouti) confirmed real and reachable through search_opportunities during development — these are genuine, current postings, not a hypothetical category.",
+    "known_bugs_and_negative_findings": [
+      "iaf.gov country pages (e.g. iaf.gov/country/mexico/) return HTTP 403 to WebFetch specifically, even though a browser-identified curl request reaches the same URL fine. This is a static page being blocked outright, not a query-parameter issue like the Census bug — there is no confirmed workaround. Don't retry this; use web-search summaries of IAF's country coverage instead, clearly caveated as secondary-source.",
+      "Searching search_opportunities for \"USAID\" or \"Agency for International Development\" (as query text or attempted agency_code values) surfaces nothing attributable to that agency, across several phrasings tested. This may reflect USAID's real 2025 restructuring rather than a search or tooling gap. Don't present USAID as a source until this is retested and found otherwise.",
+      "A US government API for foreign-aid spending history (foreignassistance.gov/api-docs) was identified as potentially useful for seeing which agencies have historically funded a given country, but its docs page is JS-rendered and its actual request format/auth requirements were not confirmed via WebFetch. Treat this as an unvalidated lead for future investigation, not a working data source."
+    ]
+  }
+}
